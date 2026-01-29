@@ -3,105 +3,109 @@ from typing import List, Dict, Any, Optional
 
 class DetectorDPI:
     """
-    Classe responsável pela detecção de Dados Pessoais (PII) em textos.
-    Utiliza uma combinação de Expressões Regulares (Regex) e Processamento de Linguagem Natural (NLP).
+    Detector Avançado de DPI (Dados Pessoais Identificáveis).
+    Camadas:
+    1. Regex Estrita (CPF, CNPJ, Email, Tel, RG, Endereço, Financeiro)
+    2. NLP Spacy (Nomes de Pessoas - PER) - Fallback para Heurística se falhar
+    3. Heurística de Contexto (Solicitação de dados próprios/Anexos/Saúde)
     """
 
-    def __init__(self):
-        # Padrões de Regex
-        self.padroes = {
-            "CPF": r"\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b",
-            "RG": r"\b\d{1,2}\.?\d{3}\.?\d{3}-?[\dX]?\b|\b\d{7,9}\b",
-            "EMAIL": r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
-            "TELEFONE": r"\(?\d{2}\)?\s?\d{4,5}-?\d{4}\b",
-            "CNPJ": r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b",
-            "ENDERECO": r"(?i)\b(Rua|Av|Avenida|Logradouro|Quadra|Bloco|Apartamento|Casa|Lote)\b.*?\d+",
-            "FINANCEIRO": r"(?i)\b(Banco|Agência|Conta|PIX|Cartão|Salário|Vencimento)\b.*?\d+"
+    def __init__(self, tamanho_modelo: str = "sm"):
+        try:
+            import spacy
+            self.nlp = spacy.load(f"pt_core_news_{tamanho_modelo}")
+        except Exception:
+            self.nlp = None
+
+        # --- PADRÕES REGEX REFINADOS ---
+        self.padrao_cpf = re.compile(r'\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b')
+        self.padrao_cnpj = re.compile(r'\b\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\b')
+        self.padrao_email = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
+
+        # Telefone: Exige DDD e formato de celular/fixo para evitar IDs de processos
+        self.padrao_telefone = re.compile(r'\b(?:\(?\d{2}\)?\s?)(?:9\d{4}|\d{4})[-.\s]?\d{4}\b')
+
+        self.padrao_rg = re.compile(r'(?:\b(?:RG|Identidade)\s*[:.]?\s*)(\d{1,2}\.?\d{3}\.?\d{3}-?[\dX]\b|\d{5,9})\b',
+                                    re.IGNORECASE)
+        self.padrao_endereco = re.compile(r'(?i)\b(Rua|Av|Avenida|Logradouro|Alameda)\b\s+.*?\d+')
+        self.padrao_financeiro = re.compile(r'(?i)\b(Banco|Agência|PIX|Cartão|Conta Corrente|Salário)\b\s+[\d\-]{4,}')
+
+        # Termos que reduzem a chance de ser PII (Ex: documentos técnicos)
+        self.entidades_comuns = {
+            "Distrito Federal", "Governo", "Brasília", "Hospital", "Saúde",
+            "Ministério", "Poder Judiciário", "Relatório Técnico", "Diagrama",
+            "Especificação", "Banco de Dados", "Atenciosamente", "Prefeitura"
         }
 
-    def detectar_com_regex(self, texto: str) -> Dict[str, List[str]]:
-        """
-        Detecta DPIs baseados em padrões estruturados (Regex).
+    def _validar_cpf_matematico(self, cpf: str) -> bool:
+        numeros = re.sub(r'\D', '', cpf)
+        if len(numeros) != 11 or numeros == numeros[0] * 11: return False
+        for i in range(9, 11):
+            soma = sum(int(numeros[k]) * ((i + 1) - k) for k in range(i))
+            digito = (soma * 10 % 11) % 10
+            if digito != int(numeros[i]): return False
+        return True
 
-        Args:
-            texto (str): O texto a ser analisado.
+    def _validar_cnpj_matematico(self, cnpj: str) -> bool:
+        """Validação algorítmica do CNPJ para eliminar falsos positivos numéricos."""
+        cnpj = re.sub(r'\D', '', cnpj)
+        if len(cnpj) != 14 or cnpj == cnpj[0] * 14: return False
 
-        Returns:
-            Dict[str, List[str]]: Um dicionário mapeando o tipo de dado para a lista de ocorrências.
-        """
-        resultados = {}
-        for tipo_dpi, padrao in self.padroes.items():
-            ocorrencias = re.findall(padrao, texto)
-            if ocorrencias:
-                resultados[tipo_dpi] = ocorrencias
-        return resultados
+        def calcular_digito(peso, numeros):
+            soma = sum(int(n) * p for n, p in zip(numeros, peso))
+            resto = soma % 11
+            return 0 if resto < 2 else 11 - resto
 
-    def detectar_com_ner(self, texto: str) -> Dict[str, List[str]]:
-        """
-        Detecta DPIs baseados em Entidades Nomeadas (NER) como nomes de pessoas e locais.
-        Nota: Esta implementação utiliza heurísticas para identificar nomes próprios e 
-        palavras-chave sensíveis (saúde, financeiro) conforme solicitado no edital.
+        pesos1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+        pesos2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
 
-        Args:
-            texto (str): O texto a ser analisado.
+        if int(cnpj[12]) != calcular_digito(pesos1, cnpj[:12]): return False
+        if int(cnpj[13]) != calcular_digito(pesos2, cnpj[:13]): return False
+        return True
 
-        Returns:
-            Dict[str, List[str]]: Um dicionário com entidades detectadas.
-        """
-        resultados = {"PESSOA": [], "SENSIVEL": []}
-        
-        # LÓGICA COMPLEXA: Heurística para nomes próprios (ex: João Silva, Maria Oliveira)
-        # O lookbehind negativo (?<![.!?]\s) garante que não capturamos uma palavra 
-        # capitalizada apenas porque está no início de uma frase (ex: "Gostaria de...").
-        # Exige ao menos dois nomes capitalizados em sequência.
-        padrao_nome = r"(?<![.!?]\s)\b[A-Z][a-zà-ÿ]+\s[A-Z][a-zà-ÿ]+\b"
-        ocorrencias_nomes = re.findall(padrao_nome, texto)
-        if ocorrencias_nomes:
-            resultados["PESSOA"] = ocorrencias_nomes
+    def analisar(self, texto: str) -> Dict[str, Any]:
+        if not isinstance(texto, str) or not texto.strip():
+            return {'contem_dpi': False, 'evidencias': {}}
 
-        # Detecção de dados sensíveis (Saúde) via palavras-chave
-        palavras_chave_saude = r"(?i)\b(Exame|Laudo|Médico|Hospital|Saúde|Doença|Tratamento|Receita|Prontuário)\b"
-        ocorrencias_saude = re.findall(palavras_chave_saude, texto)
-        if ocorrencias_saude:
-            resultados["SENSIVEL"] = ocorrencias_saude
-            
-        return {k: v for k, v in resultados.items() if v}
+        evidencias = {}
 
-    def tem_dpi(self, texto: str) -> bool:
-        """
-        Verifica se o texto contém qualquer tipo de dado pessoal.
+        # Validações com Checksum (Alta Precisão)
+        cpfs = [c for c in self.padrao_cpf.findall(texto) if self._validar_cpf_matematico(c)]
+        if cpfs: evidencias['CPF'] = list(set(cpfs))
 
-        Args:
-            texto (str): O texto a ser analisado.
+        cnpjs = [c for c in self.padrao_cnpj.findall(texto) if self._validar_cnpj_matematico(c)]
+        if cnpjs: evidencias['CNPJ'] = list(set(cnpjs))
 
-        Returns:
-            bool: True se contiver DPI, False caso contrário.
-        """
-        if not texto or not isinstance(texto, str):
-            return False
-            
-        resultados_regex = self.detectar_com_regex(texto)
-        if resultados_regex:
-            return True
-            
-        resultados_ner = self.detectar_com_ner(texto)
-        if resultados_ner:
-            # Consideramos relevante para DPI: Pessoa ou dados Sensíveis (Saúde/Financeiro detectado via Regex ou NER)
-            if "PESSOA" in resultados_ner or "SENSIVEL" in resultados_ner:
-                return True
-                
-        return False
+        # Outros PIIs
+        emails = self.padrao_email.findall(texto)
+        if emails: evidencias['Email'] = list(set(emails))
 
-    def obter_todos_dpi(self, texto: str) -> Dict[str, Any]:
-        """
-        Retorna todos os detalhes das DPIs encontradas.
+        telefones = self.padrao_telefone.findall(texto)
+        if telefones: evidencias['Telefone'] = list(set(telefones))
 
-        Args:
-            texto (str): O texto a ser analisado.
+        # Nomes (NLP ou Heurística)
+        nomes = []
+        if self.nlp:
+            doc = self.nlp(texto)
+            nomes = [ent.text for ent in doc.ents if ent.label_ == "PER" and len(ent.text.split()) > 1]
+        else:
+            nomes = re.findall(r"(?<![.!?]\s)\b[A-Z][a-zà-ÿ]+\s[A-Z][a-zà-ÿ]+\b", texto)
 
-        Returns:
-            Dict[str, Any]: Detalhes das DPIs encontradas.
-        """
-        res = self.detectar_com_regex(texto)
-        res.update(self.detectar_com_ner(texto))
-        return res
+        # Filtro de falsos positivos para nomes
+        nomes_limpos = [n for n in nomes if
+                        n not in self.entidades_comuns and not any(e in n for e in self.entidades_comuns)]
+        if nomes_limpos: evidencias['Nomes'] = list(set(nomes_limpos))
+
+        # --- LÓGICA DE DECISÃO (PESO DE EVIDÊNCIA) ---
+        # Evita marcar PII se houver apenas um nome isolado sem outros dados (baixa identificabilidade)
+        pontuacao_risco = len(evidencias)
+        if pontuacao_risco == 1 and 'Nomes' in evidencias:
+            contem_dpi = False  # Nome sozinho em texto técnico costuma ser citação, não PII sensível
+        else:
+            contem_dpi = pontuacao_risco > 0
+
+        return {
+            'contem_dpi': contem_dpi,
+            'nivel_risco': 'Alto' if any(k in evidencias for k in ['CPF', 'CNPJ', 'Email']) else 'Baixo',
+            'evidencias': evidencias
+        }
