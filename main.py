@@ -22,16 +22,28 @@ def formatar_elementos(dicionario_evidencias):
             itens.append(f"{k}: {v}")
     return " | ".join(itens)
 
+import subprocess
+
 def principal():
     """
     Função principal de execução do pipeline de detecção de DPI com relatório detalhado.
     Implementa a lógica de auditoria solicitada (Classificação + Justificativa).
     """
     parser = argparse.ArgumentParser(description='Hackathon Participa DF - Detector de DPI Avançado')
-    parser.add_argument('entrada', help='Caminho do arquivo CSV de entrada (ex: data/AMOSTRA_e-SIC.csv)')
+    parser.add_argument('entrada', nargs='?', help='Caminho do arquivo CSV de entrada (opcional se usar --gui)')
     parser.add_argument('--saida', default='resultado_analise_completa.csv', help='Caminho do arquivo de saída')
+    parser.add_argument('--gui', action='store_true', help='Inicia a interface gráfica (Streamlit)')
     
     argumentos = parser.parse_args()
+
+    # Se --gui for passado ou se não houver argumentos de entrada, inicia a GUI
+    if argumentos.gui or not argumentos.entrada:
+        print("\n--- Iniciando Interface Gráfica (Streamlit) ---")
+        try:
+            subprocess.run(["streamlit", "run", "interface_gui.py"])
+        except FileNotFoundError:
+            print("Erro: Streamlit não encontrado. Instale com 'pip install streamlit'.")
+        return
     
     print("\n--- Iniciando Análise Otimizada (Junie AI) ---")
     print(f"Lendo dados de: {argumentos.entrada}")
