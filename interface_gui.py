@@ -34,6 +34,12 @@ def main():
         index=0,
         help="Modelos maiores são mais precisos, mas requerem mais memória e tempo de processamento."
     )
+
+    estrito = st.sidebar.checkbox(
+        "Filtragem Estrita",
+        value=True,
+        help="Se marcado, qualquer dado pessoal (incluindo nomes isolados) marcará o texto como PRIVADO. Se desmarcado, nomes isolados sem outros dados podem ser considerados PUBLICO."
+    )
     
     # Inicializa o Detector com Cache para evitar recarregamento pesado do modelo NLP
     @st.cache_resource
@@ -87,7 +93,7 @@ def main():
                 texto_limpo = limpar_texto(texto)
                 
                 # Executa a detecção
-                analise = detector.analisar(texto_limpo)
+                analise = detector.analisar(texto_limpo, estrito=estrito)
                 
                 # Lógica de Classificação
                 classificacao = "PRIVADO" if analise['contem_dpi'] else "PUBLICO"

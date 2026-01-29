@@ -63,7 +63,7 @@ class DetectorDPI:
         if int(cnpj[13]) != calcular_digito(pesos2, cnpj[:13]): return False
         return True
 
-    def analisar(self, texto: str) -> Dict[str, Any]:
+    def analisar(self, texto: str, estrito: bool = True) -> Dict[str, Any]:
         if not isinstance(texto, str) or not texto.strip():
             return {'contem_dpi': False, 'evidencias': {}}
 
@@ -97,12 +97,18 @@ class DetectorDPI:
         if nomes_limpos: evidencias['Nomes'] = list(set(nomes_limpos))
 
         # --- LÓGICA DE DECISÃO (PESO DE EVIDÊNCIA) ---
-        # Evita marcar PII se houver apenas um nome isolado sem outros dados (baixa identificabilidade)
         pontuacao_risco = len(evidencias)
-        if pontuacao_risco == 1 and 'Nomes' in evidencias:
-            contem_dpi = False  # Nome sozinho em texto técnico costuma ser citação, não PII sensível
-        else:
+        
+        if estrito:
+            # No modo estrito, qualquer evidência marca como DPI
             contem_dpi = pontuacao_risco > 0
+        else:
+            # Modo menos estrito (comportamento "filtro leve")
+            # Evita marcar PII se houver apenas um nome isolado sem outros dados (baixa identificabilidade)
+            if pontuacao_risco == 1 and 'Nomes' in evidencias:
+                contem_dpi = False
+            else:
+                contem_dpi = pontuacao_risco > 0
 
         return {
             'contem_dpi': contem_dpi,
