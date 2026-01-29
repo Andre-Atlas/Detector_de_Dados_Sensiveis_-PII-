@@ -13,7 +13,7 @@ class TestDetectorDPI(unittest.TestCase):
         self.detector = DetectorDPI()
 
     def test_falsos_positivos_tecnicos(self):
-        """Testa se o código ignora números que parecem PII mas são técnicos."""
+        """Testa se o código ignora números que parecem PII mas são técnicos (usando filtro leve)."""
         textos_seguros = [
             "O processo SEI nº 00001-00005678/2023-11 foi atualizado.",  # Formato similar a telefone/CPF
             "A temperatura da caldeira atingiu 120.345.678 graus.",  # Número grande formatado
@@ -21,8 +21,17 @@ class TestDetectorDPI(unittest.TestCase):
             "Acesse o banco de dados da Prefeitura de Brasília."  # Entidade comum
         ]
         for texto in textos_seguros:
-            resultado = self.detector.analisar(texto)
+            resultado = self.detector.analisar(texto, estrito=False)
             self.assertFalse(resultado['contem_dpi'], f"Falso positivo detectado em: {texto}")
+
+    def test_modo_estrito(self):
+        """Testa se o modo estrito captura nomes isolados."""
+        texto = "Relatório técnico assinado por João Silva."
+        resultado_estrito = self.detector.analisar(texto, estrito=True)
+        self.assertTrue(resultado_estrito['contem_dpi'], "Modo estrito deveria detectar nome isolado")
+        
+        resultado_filtro_leve = self.detector.analisar(texto, estrito=False)
+        self.assertFalse(resultado_filtro_leve['contem_dpi'], "Filtro leve deveria ignorar nome isolado")
 
     def test_positivos_reais(self):
         """Testa se o código detecta PIIs reais com validação matemática."""

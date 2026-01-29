@@ -33,6 +33,7 @@ def principal():
     parser.add_argument('entrada', nargs='?', help='Caminho do arquivo CSV de entrada (opcional se usar --gui)')
     parser.add_argument('--saida', default='resultado_analise_completa.csv', help='Caminho do arquivo de saída')
     parser.add_argument('--gui', action='store_true', help='Inicia a interface gráfica (Streamlit)')
+    parser.add_argument('--filtro-leve', action='store_true', help='Usa filtragem menos estrita (ignora nomes isolados)')
     
     argumentos = parser.parse_args()
 
@@ -75,7 +76,7 @@ def principal():
         texto_original = str(linha.get(coluna_texto, ''))
         texto_limpo = limpar_texto(texto_original)
         
-        analise = detector.analisar(texto_limpo)
+        analise = detector.analisar(texto_limpo, estrito=not argumentos.filtro_leve)
         
         # Colunas pedidas: Classificação (PRIVADO/PUBLICO) e Elementos_Encontrados
         classificacao = "PRIVADO" if analise['contem_dpi'] else "PUBLICO"

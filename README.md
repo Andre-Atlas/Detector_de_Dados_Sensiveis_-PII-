@@ -92,6 +92,12 @@ Para processar arquivos em lote e gerar relatórios automaticamente:
 python main.py data\AMOSTRA_e-SIC.csv --saida resultado_dpi.csv
 ```
 
+**Opção de Filtro Leve:**
+Caso deseje uma filtragem menos estrita (que ignora nomes isolados para reduzir falsos positivos em citações técnicas), use a flag `--filtro-leve`:
+```powershell
+python main.py data\AMOSTRA_e-SIC.csv --filtro-leve
+```
+
 #### 4. Execução dos Testes
 ```powershell
 python -m unittest testes\TestDetectorDPI.py
@@ -101,15 +107,18 @@ python -m unittest testes\TestDetectorDPI.py
 
 ### 📈 Diferenciais e Inteligência
 
-1.  **Suporte Multi-formato**: A interface gráfica agora aceita arquivos **CSV**, **Excel (.xlsx, .xls)** e **Texto (.txt)**.
-2.  **Redução de Falsos Positivos**: 
+1.  **Controle de Precisão**:
+    - **Modo Estrito (Padrão)**: Qualquer menção a dados pessoais (Nome, CPF, RG, Telefone, Email, Endereço) marca o registro como **PRIVADO**.
+    - **Modo Filtro Leve**: Ignora nomes isolados se não houver outros dados acompanhando, ideal para textos com muitas citações de autoridades ou autores.
+2.  **Suporte Multi-formato**: A interface gráfica agora aceita arquivos **CSV**, **Excel (.xlsx, .xls)** e **Texto (.txt)**.
+3.  **Redução de Falsos Positivos**: 
     - Validação matemática (Checksum) para CPF/CNPJ.
     - Filtro de **Entidades Comuns**: Ignora termos técnicos e órgãos públicos (ex: "Governo", "Ministério", "Hospital") que poderiam ser confundidos com nomes.
     - **Análise de Risco**: Um nome isolado em um texto técnico pode não ser DPI, mas um nome acompanhado de um CPF eleva o `nivel_risco` para **"Alto"**.
-3.  **Robustez de Carregamento**:
+4.  **Robustez de Carregamento**:
     - Detecção automática de delimitadores em CSV.
     - Suporte a múltiplas codificações (`UTF-8`, `ISO-8859-1`, etc).
-4.  **Auditabilidade Total**:
+5.  **Auditabilidade Total**:
     - Geração de relatório com a coluna `Elementos_Encontrados`, detalhando exatamente o que foi visto.
 
 ---
