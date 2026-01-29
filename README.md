@@ -74,42 +74,43 @@ pip install -r requirements.txt
 
 ### 💻 Como Executar
 
-#### 1. Execução do Detector (Com Auditoria)
-O script gera um relatório completo com classificação e as evidências encontradas.
+#### 1. Execução Simplificada (Interface Gráfica)
+Agora o projeto inicia automaticamente a interface gráfica caso nenhum parâmetro seja passado:
+```powershell
+python main.py
+```
 
-**Comando:**
+#### 2. Execução da Interface Gráfica (Manual)
+Para abrir diretamente via Streamlit:
+```powershell
+streamlit run interface_gui.py
+```
+
+#### 3. Execução via Linha de Comando (CLI)
+Para processar arquivos em lote e gerar relatórios automaticamente:
 ```powershell
 python main.py data\AMOSTRA_e-SIC.csv --saida resultado_dpi.csv
 ```
 
-#### 2. Execução dos Testes
+#### 4. Execução dos Testes
 ```powershell
 python -m unittest testes\TestDetectorDPI.py
 ```
 
 ---
 
-### 📊 Formato dos Dados
-
-#### Saída (CSV)
-O arquivo gerado contém as colunas originais e duas novas colunas cruciais para auditoria:
-- **`Classificacao`**: "PRIVADO" (se contiver DPI) ou "PUBLICO".
-- **`Elementos_Encontrados`**: Justificativa detalhada listando os tipos de dados e os valores detectados (ex: `CPF: 123... | Nomes: João Silva`).
-
----
-
 ### 📈 Diferenciais e Inteligência
 
-1.  **Redução de Falsos Positivos**: 
+1.  **Suporte Multi-formato**: A interface gráfica agora aceita arquivos **CSV**, **Excel (.xlsx, .xls)** e **Texto (.txt)**.
+2.  **Redução de Falsos Positivos**: 
     - Validação matemática (Checksum) para CPF/CNPJ.
     - Filtro de **Entidades Comuns**: Ignora termos técnicos e órgãos públicos (ex: "Governo", "Ministério", "Hospital") que poderiam ser confundidos com nomes.
     - **Análise de Risco**: Um nome isolado em um texto técnico pode não ser DPI, mas um nome acompanhado de um CPF eleva o `nivel_risco` para **"Alto"**.
-2.  **Robustez de Carregamento**:
-    - Detecção automática de delimitadores (vírgula, ponto e vírgula, etc).
+3.  **Robustez de Carregamento**:
+    - Detecção automática de delimitadores em CSV.
     - Suporte a múltiplas codificações (`UTF-8`, `ISO-8859-1`, etc).
-    - Resiliência a arquivos com quebras de linha irregulares.
-3.  **Auditabilidade Total**:
-    - Geração de relatório com a coluna `Elementos_Encontrados`, detalhando exatamente o que foi visto (Ex: `CPF: 123... | Nomes: João Silva`).
+4.  **Auditabilidade Total**:
+    - Geração de relatório com a coluna `Elementos_Encontrados`, detalhando exatamente o que foi visto.
 
 ---
 **Autor:** André Acioli (Engenheiro de Software-ucb)
