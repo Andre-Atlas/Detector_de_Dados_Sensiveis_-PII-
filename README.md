@@ -2,7 +2,7 @@
 
 ## 🧠 Projeto de Detecção de DPI (Dados Pessoais Identificáveis)
 
-Este projeto foi desenvolvido para o **Hackathon Participa DF**, com o objetivo de identificar automaticamente dados pessoais (DPI - Dados Pessoais Identificáveis) em pedidos de acesso à informação. A solução utiliza uma abordagem multi-camadas (Regex, NLP e Heurísticas de Contexto) para maximizar o **F1-Score** e fornecer relatórios detalhados para auditoria.
+Este projeto foi desenvolvido para o **Hackathon Participa DF**, com o objetivo de identificar automaticamente dados pessoais (DPI - Dados Pessoais Identificáveis) em pedidos de acesso à informação. A solução utiliza uma abordagem multi-camadas (Regex, NLP e Heurísticas de Contexto) de modo a fornecer relatórios detalhados para auditoria.
 
 ### 📋 Funcionalidades de Detecção
 
